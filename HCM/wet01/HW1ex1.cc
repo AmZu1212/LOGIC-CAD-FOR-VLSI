@@ -109,7 +109,7 @@ int main(int argc, char **argv)
 	for (auto it : currentNodeMap)
 	{
 		string nodeName = it.first;
-		cout << "Node name: " << nodeName << endl;
+		if(DEBUG && false) cout << "Node name: " << nodeName << endl;
 		if (globalNodes.find(nodeName) == globalNodes.end())
 		{
 			topLevelNodeCounter++;
@@ -117,7 +117,7 @@ int main(int argc, char **argv)
 	}
 
 	// debug print of global nodes
-	if (DEBUG)
+	if (DEBUG && false)
 	{
 		// print global nodes
 		cout << "Global nodes: ";
@@ -145,6 +145,7 @@ int main(int argc, char **argv)
 	topLevelInstanceCounter = currentInstanceMap.size();
 
 	fv << "b: " << topLevelInstanceCounter << endl;
+	if (DEBUG) cout << "b: " << topLevelInstanceCounter << endl;
 
 	//  === Section C ===
 	//	How many instances of the cell “nand” exist in cells of the folded model?
@@ -198,6 +199,7 @@ int main(int argc, char **argv)
 	// they mean count the number of nand instances in the cells used by this design.
 
 	fv << "c: " << cellNameFoldedCounter << endl;
+	if (DEBUG) cout << "c: " << cellNameFoldedCounter << endl;
 
 	//  === Section D ===
 	//	How many instances of cell “nand” exist in the entire hierarchy (means the number of “nand”s that are needed for full implementation of the top cell)?
