@@ -155,6 +155,48 @@ int main(int argc, char **argv)
 	// enter your code here
 	//---------------------------------------------------------------------------------//
 
+	vector<hcmCell *> mastersToVisit;
+
+	// maybe loop over topcell instances, then check each instances master (ignore duplicates)
+	// then loop over master list, and count nands in each definition.
+	for (auto it : currentInstanceMap)
+	{
+		hcmInstance *currentInstance = it.second;
+		hcmCell *currentMasterCell = currentInstance->masterCell();
+
+		// check if master already in list
+		bool found = false;
+		for (auto mc : mastersToVisit)
+		{
+			if (mc == currentMasterCell)
+			{
+				found = true;
+				break;
+			}
+		}
+		if (!found)
+		{
+			mastersToVisit.push_back(currentMasterCell);
+		}
+	}
+
+	// loop over master list and count nands
+	for (auto mc : mastersToVisit)
+	{
+		map<string, hcmInstance *> masterInstanceMap = mc->getInstances();
+		for (auto it : masterInstanceMap)
+		{
+			hcmInstance *currentInstance = it.second;
+			hcmCell *currentMasterCell = currentInstance->masterCell();
+			if (currentMasterCell->getName() == "nand") // should probably compare to nand instance name?
+			{
+				cellNameFoldedCounter++;
+			}
+		}
+	}
+
+	// they mean count the number of nand instances in the cells used by this design.
+
 	fv << "c: " << cellNameFoldedCounter << endl;
 
 	//  === Section D ===
