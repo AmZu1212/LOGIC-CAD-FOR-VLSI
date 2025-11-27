@@ -147,7 +147,8 @@ int main(int argc, char **argv)
 	fv << "b: " << topLevelInstanceCounter << endl;
 
 	//  === Section C ===
-	//	How many instances of the cell “nand” exist in cells of the folded model? Don’t count “nand” instances that are contained within other instances.
+	//	How many instances of the cell “nand” exist in cells of the folded model?
+	//	Don’t count “nand” instances that are contained within other instances.
 	//	(assign your answer for section c to cellNameFoldedCounter)
 	int cellNameFoldedCounter = 0;
 	//---------------------------------------------------------------------------------//
@@ -157,7 +158,8 @@ int main(int argc, char **argv)
 	fv << "c: " << cellNameFoldedCounter << endl;
 
 	//  === Section D ===
-	//	How many instances of cell “nand” exist in the entire hierarchy (means the number of “nand”s that are needed for full implementation of the top cell)? It is recommended to use here the flatmodel cell.
+	//	How many instances of cell “nand” exist in the entire hierarchy (means the number of “nand”s that are needed for full implementation of the top cell)?
+	//	It is recommended to use here the flatmodel cell.
 	//	(assign your answer for section d to cellNameFlatendCounter)
 	int cellNameFlatendCounter = 0;
 	//---------------------------------------------------------------------------------//
@@ -169,9 +171,9 @@ int main(int argc, char **argv)
 	//	find the deepest reach of a top level node.
 
 	// 	How many levels of hierarchy traverse the top cell node with the deepest reach?
-	// Reach refers to the number of hierarchical levels a traversal moves through, starting from a specific node and continuing until it reaches a cell that contains no further instances.
-	// For example, a top cell with no instances in it will have reach of 1.
-	// A cell with node connected to one instance will have reach of 2.
+	//	Reach refers to the number of hierarchical levels a traversal moves through, starting from a specific node and continuing until it reaches a cell that contains no further instances.
+	//	For example, a top cell with no instances in it will have reach of 1.
+	//	A cell with node connected to one instance will have reach of 2.
 	//	(assign your answer for section e to deepestReach)
 	int deepestReach = 1;
 	//---------------------------------------------------------------------------------//
@@ -181,10 +183,10 @@ int main(int argc, char **argv)
 
 	//  === Section F ===
 	//	find hierarchical names of deepest reaching nodes.
-	// What are the hierarchical names of the deepest nodes, i.e. the nodes that are in the lowest cells levels.
-	// Order the node names lexicographically.
-	// assign your answer for section f to the given, What are the hierarchical names of the deepest nodes, i.e. the nodes that are in the lowest cells levels.
-	// Order the node names lexicographically. assign your answer for section f to the given
+	//	What are the hierarchical names of the deepest nodes, i.e. the nodes that are in the lowest cells levels.
+	//	Order the node names lexicographically.
+	//	assign your answer for section f to the given, What are the hierarchical names of the deepest nodes, i.e. the nodes that are in the lowest cells levels.
+	//	Order the node names lexicographically. assign your answer for section f to the given
 	//	(assign your answer for section f to listOfHierarchicalNameOfDeepestReachingNodes)
 	list<string> listOfHierarchicalNameOfDeepestReachingNodes;
 	//---------------------------------------------------------------------------------//
