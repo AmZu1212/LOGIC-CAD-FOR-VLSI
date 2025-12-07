@@ -82,9 +82,9 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	/// TODO: uncomment this line after implementing section.
-	// hcmCell *flatCell = hcmFlatten(cellName + string("_flat"), topCell, globalNodes);
-	cout << "-I- Top cell flattened" << endl;
+	hcmCell *flatCell = hcmFlatten(cellName + string("_flat"), topCell, globalNodes);
+	cout
+		<< "-I- Top cell flattened" << endl;
 
 	fv << "file name: " << fileName << endl;
 
@@ -155,15 +155,18 @@ int main(int argc, char **argv)
 	//	How many instances of the cell “nand” exist in cells of the folded model?
 	//	Don’t count “nand” instances that are contained within other instances.
 	//	(assign your answer for section c to cellNameFoldedCounter)
-	int cellNameFoldedCounter = 0;
-	//---------------------------------------------------------------------------------//
-	// enter your code here
-	//---------------------------------------------------------------------------------//
 
+	// the idea:
+	//		1.loop over instances,
+	//		2.check each instance's master (ignore duplicates)
+	//		3.loop over master list, count nands in each master definition.
+
+	// so basically we check all instances of "nand" that are in the definitions used by the design.
+
+	int cellNameFoldedCounter = 0;
 	vector<hcmCell *> mastersToVisit;
 
-	// maybe loop over topcell instances, then check each instances master (ignore duplicates)
-	// then loop over master list, and count nands in each definition.
+	// fetch all masters from instances
 	for (auto it : currentInstanceMap)
 	{
 		hcmInstance *currentInstance = it.second;
@@ -200,8 +203,6 @@ int main(int argc, char **argv)
 		}
 	}
 
-	// they mean count the number of nand instances in the cells used by this design.
-
 	fv << "c: " << cellNameFoldedCounter << endl;
 	if (DEBUG)
 		cout << "c: " << cellNameFoldedCounter << endl;
@@ -211,10 +212,23 @@ int main(int argc, char **argv)
 	//	It is recommended to use here the flatmodel cell.
 	//	(assign your answer for section d to cellNameFlatendCounter)
 	int cellNameFlatendCounter = 0;
-	//---------------------------------------------------------------------------------//
-	// enter your code here
-	//---------------------------------------------------------------------------------//
+
+	// the idea:
+	map<string, hcmInstance *> flatInstanceMap = flatCell->getInstances();
+	for (auto it : flatInstanceMap)
+	{
+		hcmInstance *currentInstance = it.second;
+		hcmCell *currentMasterCell = currentInstance->masterCell();
+		if (currentMasterCell->getName() == "nand") // should probably compare to nand instance name?
+		{
+			cellNameFlatendCounter++;
+		}
+	}
+
+	cout << "-I- Total instances in flat cell: " << flatInstanceMap.size() << endl;
 	fv << "d: " << cellNameFlatendCounter << endl;
+	if (DEBUG)
+		cout << "d: " << cellNameFlatendCounter << endl;
 
 	//  === Section E ===
 	//	find the deepest reach of a top level node.

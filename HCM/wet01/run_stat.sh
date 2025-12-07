@@ -9,9 +9,9 @@ cd "$(dirname "$0")"
 make clean
 make gl_stat
 
-# gl_stat Runs
-./gl_stat -v TopLevel1355 stdcell.v c1355high.v
-#./gl_stat -v TopLevel2670 stdcell.v c2670high.v
+# gl_stat Runs (u can use "-v" for more prints)
+./gl_stat TopLevel1355 stdcell.v c1355high.v
+./gl_stat TopLevel2670 stdcell.v c2670high.v
 
 # gl_rank Runs
 ##./gl_rank -v TopLevel1355 stdcell.v c1355high.v
@@ -36,6 +36,12 @@ compare_fields() {
   return $status
 }
 
+echo "------------- Runs Are Done ------------------"
+
+echo ""
+echo ""
+echo "===== 1355 Check ====="
+
 # diff check - generalize later
 if compare_fields "TopLevel1355.stat" "Expected Outputs/TopLevel1355.stat.expected"; then
   echo ""
@@ -45,6 +51,24 @@ else
   echo ""
   echo ""
   echo "Mismatch detected."
-  exit 1
 fi
 
+echo ""
+echo ""
+echo ""
+echo "===== 2670 Check ====="
+
+
+# diff check - generalize later
+if compare_fields "TopLevel2670.stat" "Expected Outputs/TopLevel2670.stat.expected"; then
+  echo ""
+  echo ""
+  echo "a,b,c,d,e all match."
+else
+  echo ""
+  echo ""
+  echo "Mismatch detected."
+fi
+
+echo ""
+echo ""
