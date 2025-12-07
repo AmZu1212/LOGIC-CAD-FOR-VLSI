@@ -241,11 +241,57 @@ int main(int argc, char **argv)
 	//	A cell with node connected to one instance will have reach of 2.
 	//	(assign your answer for section e to deepestReach)
 
-	int deepestReach = 1;
+	int deepestReach = 1; // default is 1
 
+	// this is a DFS problem, we will solve using a stack like we did in the tutorial.
 
+	//	iterate over top-level nodes,
+	//	follow only the instances actually connected to the node,
+	//	and walk down until we cant anymore, then fold back up and try other route.
 
+	for (auto nodePair : topCell->getNodes())
+	{
+		hcmNode *topNode = nodePair.second;
 
+		// skip VDD/VSS
+		if (globalNodes.find(topNode->getName()) != globalNodes.end())
+		{
+			continue;
+		}
+
+		// stack holds (node, depth). depth counts cells: top node is 1.
+		vector<pair<hcmNode *, int>> stack;
+		stack.push_back(make_pair(topNode, 1));
+
+		while (!stack.empty())
+		{
+			// get top
+			pair<hcmNode *, int> current = stack.back();
+			stack.pop_back();
+
+			hcmNode *node = current.first;
+			int depth = current.second;
+
+			// check if current is the deepest
+			if (depth > deepestReach)
+			{
+				deepestReach = depth;
+			}
+
+			// follow instance ports connected to this node
+			for (auto ipPair : node->getInstPorts())
+			{
+				hcmInstPort *ip = ipPair.second;
+				hcmPort *masterPort = ip->getPort();
+				if (!masterPort)
+				{
+					continue;
+				}
+				hcmNode *innerNode = masterPort->owner(); // corresponding node inside the master cell
+				stack.push_back(make_pair(innerNode, depth + 1));
+			}
+		}
+	}
 
 	fv << "e: " << deepestReach << endl;
 	if (DEBUG)
