@@ -12,7 +12,7 @@ gl_stat: HW1ex1.o $(HCMPATH)/flattener/flat.o
 
 gl_rank: HW1ex2.o $(HCMPATH)/flattener/flat.o
 	g++ -std=c++11 -o $@ $^ $(LDFLAGS)
- 
-clean: 
-	@ rm gl_stat gl_rank $(wildcard *.o) \
+
+clean:
+	@ rm -f gl_stat gl_rank $(wildcard *.o) \
 	$(wildcard *.so) $(wildcard *.d) $(wildcard *~) || true
