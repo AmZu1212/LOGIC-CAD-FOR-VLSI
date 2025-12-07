@@ -18,20 +18,29 @@ make gl_stat
 ##./gl_rank -v TopLevel2670 stdcell.v c2670high.v
 
 
-# diff results with expected
-compare_fields() {
-  local file="$1" expected="$2" status=0
+# Compare stats: report per-field for a–e with expected/actual; f only says match/not
+get_val() { awk -F': *' -v key="$1" '$1==key {print $2; exit}' "$2"; }
 
-  get_val() { awk -F': *' -v key="$1" '$1==key {print $2; exit}' "$2"; }
+check_stats() {
+  local file="$1" expected="$2" status=0
 
   for key in a b c d e; do
     actual=$(get_val "$key" "$file")
     expect=$(get_val "$key" "$expected")
     if [ "$actual" != "$expect" ]; then
-      echo "$key differs: actual=$actual expected=$expect"
+      echo "$key mismatch: actual=$actual expected=$expect"
       status=1
+    else
+      echo "$key ok: $actual"
     fi
   done
+
+  if diff -q "$expected" "$file" >/dev/null; then
+    echo "f matches (full content)"
+  else
+    echo "f differs (content not shown; run 'diff -u \"$expected\" \"$file\"' to view)"
+    status=1
+  fi
 
   return $status
 }
@@ -42,16 +51,11 @@ echo ""
 echo ""
 echo "===== 1355 Check ====="
 
-# diff check - generalize later
-if compare_fields "TopLevel1355.stat" "Expected Outputs/TopLevel1355.stat.expected"; then
-  echo ""
-  echo ""
-  echo "a,b,c,d,e all match."
-else
-  echo ""
-  echo ""
-  echo "Mismatch detected."
-fi
+overall_status=0
+
+# run checks without exiting early on mismatch
+set +e
+check_stats "TopLevel1355.stat" "Expected Outputs/TopLevel1355.stat.expected" || overall_status=1
 
 echo ""
 echo ""
@@ -59,16 +63,10 @@ echo ""
 echo "===== 2670 Check ====="
 
 
-# diff check - generalize later
-if compare_fields "TopLevel2670.stat" "Expected Outputs/TopLevel2670.stat.expected"; then
-  echo ""
-  echo ""
-  echo "a,b,c,d,e all match."
-else
-  echo ""
-  echo ""
-  echo "Mismatch detected."
-fi
+check_stats "TopLevel2670.stat" "Expected Outputs/TopLevel2670.stat.expected" || overall_status=1
+set -e
 
 echo ""
 echo ""
+
+exit $overall_status
