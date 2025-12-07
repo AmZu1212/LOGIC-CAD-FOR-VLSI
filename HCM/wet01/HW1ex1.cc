@@ -232,17 +232,24 @@ int main(int argc, char **argv)
 
 	//  === Section E ===
 	//	find the deepest reach of a top level node.
-
+	//
 	// 	How many levels of hierarchy traverse the top cell node with the deepest reach?
-	//	Reach refers to the number of hierarchical levels a traversal moves through, starting from a specific node and continuing until it reaches a cell that contains no further instances.
+	//	Reach refers to the number of hierarchical levels a traversal moves through,
+	//	starting from a specific node and continuing until it reaches a cell that contains no further instances.
+	//
 	//	For example, a top cell with no instances in it will have reach of 1.
 	//	A cell with node connected to one instance will have reach of 2.
 	//	(assign your answer for section e to deepestReach)
+
 	int deepestReach = 1;
-	//---------------------------------------------------------------------------------//
-	// enter your code here
-	//---------------------------------------------------------------------------------//
+
+
+
+
+
 	fv << "e: " << deepestReach << endl;
+	if (DEBUG)
+		cout << "e: " << deepestReach << endl;
 
 	//  === Section F ===
 	//	find hierarchical names of deepest reaching nodes.
