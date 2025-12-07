@@ -248,6 +248,7 @@ int main(int argc, char **argv)
 	//	iterate over top-level nodes,
 	//	follow only the instances actually connected to the node,
 	//	and walk down until we cant anymore, then fold back up and try other route.
+	// 	also avoid re-runs using a visited set.
 
 	for (auto nodePair : topCell->getNodes())
 	{
@@ -261,14 +262,28 @@ int main(int argc, char **argv)
 
 		// stack holds (node, depth). depth counts cells: top node is 1.
 		vector<pair<hcmNode *, int>> stack;
-		stack.push_back(make_pair(topNode, 1));
+		set<pair<hcmNode *, int>> visited;
+
+		// helper lambda to enqueue if not visited
+		auto enqueue = [&](hcmNode *n, int d)
+		{
+			pair<hcmNode *, int> key(n, d);
+			// this return true only if there is no such element in the set
+			// so (b,6) and (b,4) are different keys, and will work correctly.
+			// atleast i think so.
+			if (visited.insert(key).second)
+			{
+				stack.push_back(key);
+			}
+		};
+
+		enqueue(topNode, 1);
 
 		while (!stack.empty())
 		{
 			// get top
 			pair<hcmNode *, int> current = stack.back();
 			stack.pop_back();
-
 			hcmNode *node = current.first;
 			int depth = current.second;
 
@@ -279,16 +294,17 @@ int main(int argc, char **argv)
 			}
 
 			// follow instance ports connected to this node
-			for (auto ipPair : node->getInstPorts())
+			for (auto instPortPair : node->getInstPorts())
 			{
-				hcmInstPort *ip = ipPair.second;
-				hcmPort *masterPort = ip->getPort();
-				if (!masterPort)
+				hcmInstPort *instPort = instPortPair.second;
+				hcmPort *masterPort = instPort->getPort();
+				if (!masterPort) // avoid nulls!!!
 				{
 					continue;
 				}
-				hcmNode *innerNode = masterPort->owner(); // corresponding node inside the master cell
-				stack.push_back(make_pair(innerNode, depth + 1));
+				// corresponding node inside the master cell
+				hcmNode *innerNode = masterPort->owner();
+				enqueue(innerNode, depth + 1);
 			}
 		}
 	}
@@ -305,9 +321,10 @@ int main(int argc, char **argv)
 	//	Order the node names lexicographically. assign your answer for section f to the given
 	//	(assign your answer for section f to listOfHierarchicalNameOfDeepestReachingNodes)
 	list<string> listOfHierarchicalNameOfDeepestReachingNodes;
-	//---------------------------------------------------------------------------------//
-	// enter your code here
-	//---------------------------------------------------------------------------------//
+
+	
+
+	// not doing a debug print for this since this is long.
 	for (auto it : listOfHierarchicalNameOfDeepestReachingNodes)
 	{
 		// erase the '/' in the beginning of the hierarchical name.
