@@ -96,6 +96,8 @@ int main(int argc, char **argv)
 	// Written by:
 	//				Amir Zuabi 		 - 212606222
 	//				Alexey Vasilayev - 323686683
+	//
+	// plz note: updates comments to fit the given pdf, since there were some changes in the questions wording.
 
 	//  === Section A ===
 	//	find all nodes in folded top module. excluding global nodes (VSS and VDD).
@@ -109,7 +111,8 @@ int main(int argc, char **argv)
 	for (auto it : currentNodeMap)
 	{
 		string nodeName = it.first;
-		if(DEBUG && false) cout << "Node name: " << nodeName << endl;
+		if (DEBUG && false)
+			cout << "Node name: " << nodeName << endl;
 		if (globalNodes.find(nodeName) == globalNodes.end())
 		{
 			topLevelNodeCounter++;
@@ -145,7 +148,8 @@ int main(int argc, char **argv)
 	topLevelInstanceCounter = currentInstanceMap.size();
 
 	fv << "b: " << topLevelInstanceCounter << endl;
-	if (DEBUG) cout << "b: " << topLevelInstanceCounter << endl;
+	if (DEBUG)
+		cout << "b: " << topLevelInstanceCounter << endl;
 
 	//  === Section C ===
 	//	How many instances of the cell “nand” exist in cells of the folded model?
@@ -199,7 +203,8 @@ int main(int argc, char **argv)
 	// they mean count the number of nand instances in the cells used by this design.
 
 	fv << "c: " << cellNameFoldedCounter << endl;
-	if (DEBUG) cout << "c: " << cellNameFoldedCounter << endl;
+	if (DEBUG)
+		cout << "c: " << cellNameFoldedCounter << endl;
 
 	//  === Section D ===
 	//	How many instances of cell “nand” exist in the entire hierarchy (means the number of “nand”s that are needed for full implementation of the top cell)?
