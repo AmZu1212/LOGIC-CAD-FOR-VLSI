@@ -317,21 +317,25 @@ int main(int argc, char **argv)
 	//	find hierarchical names of deepest reaching nodes.
 	//	What are the hierarchical names of the deepest nodes, i.e. the nodes that are in the lowest cells levels.
 	//	Order the node names lexicographically.
-	//	assign your answer for section f to the given, What are the hierarchical names of the deepest nodes, i.e. the nodes that are in the lowest cells levels.
+	//	assign your answer for section f to the given, What are the hierarchical names of the deepest nodes,
+	//	i.e. the nodes that are in the lowest cells levels.
 	//	Order the node names lexicographically. assign your answer for section f to the given
+
 	//	(assign your answer for section f to listOfHierarchicalNameOfDeepestReachingNodes)
 	list<string> listOfHierarchicalNameOfDeepestReachingNodes;
-	// recompute deepest leaf nodes (depth == deepestReach) by walking the instance hierarchy
+
+	// compute deepest leaf nodes (depth == deepestReach) by walking the instance hierarchy
+	// note: section E walked nodes; here we walk instances to avoid master-node reuse and keep paths explicit.
 	listOfHierarchicalNameOfDeepestReachingNodes.clear();
 	int maxDepthEncountered = 1;
 	vector<tuple<hcmInstance *, int, string>> instStack;
 	for (auto instPair : topCell->getInstances())
 	{
 		hcmInstance *inst = instPair.second;
-		instStack.push_back(make_tuple(inst, 1, inst->getName())); // top inst depth = 1
+		instStack.push_back(make_tuple(inst, 1, string("/") + inst->getName())); // top inst depth = 1
 	}
 
-	// first pass: find max depth encountered
+	// first pass: find max depth encountered (instance-based depth) so we can align to deepestReach
 	for (size_t idx = 0; idx < instStack.size(); ++idx)
 	{
 		hcmInstance *inst = get<0>(instStack[idx]);
@@ -348,12 +352,13 @@ int main(int argc, char **argv)
 		}
 	}
 
+	
 	int depthAdjust = deepestReach - maxDepthEncountered;
 	instStack.clear();
 	for (auto instPair : topCell->getInstances())
 	{
 		hcmInstance *inst = instPair.second;
-		instStack.push_back(make_tuple(inst, 1, inst->getName()));
+		instStack.push_back(make_tuple(inst, 1, string("/") + inst->getName()));
 	}
 
 	while (!instStack.empty())
@@ -367,6 +372,7 @@ int main(int argc, char **argv)
 		hcmCell *master = inst->masterCell();
 		if (master->getInstances().empty())
 		{
+			// reached a leaf cell; align depth to deepestReach using depthAdjust
 			if (depth + depthAdjust == deepestReach)
 			{
 				for (auto nodePair : master->getNodes())
@@ -386,25 +392,26 @@ int main(int argc, char **argv)
 		for (auto childPair : master->getInstances())
 		{
 			hcmInstance *childInst = childPair.second;
+			// walk down the hierarchy: depth+1 per instance hop, extend hierarchical path
 			instStack.push_back(make_tuple(childInst, depth + 1, path + string("/") + childInst->getName()));
 		}
 	}
 
 	listOfHierarchicalNameOfDeepestReachingNodes.sort();
 
-	// not doing a debug print for this since this is long.
-	for (auto it = listOfHierarchicalNameOfDeepestReachingNodes.begin();
-		 it != listOfHierarchicalNameOfDeepestReachingNodes.end();
-		 ++it)
+	// i.e. the name in listOfHierarchicalNameOfDeepestReachingNodes should be "/i1/i2/i3/i5/N1",
+	// and the printed name should be "i1/i2/i3/i5/N1".
+
+	// not sure what they meant, but we will only edit the copy of the string.
+	for (auto it = listOfHierarchicalNameOfDeepestReachingNodes.begin(); it != listOfHierarchicalNameOfDeepestReachingNodes.end(); ++it)
 	{
-		// erase the '/' in the beginning of the hierarchical name.
-		// i.e. the name in listOfHierarchicalNameOfDeepestReachingNodes should be "/i1/i2/i3/i5/N1",
-		// and the printed name should be "i1/i2/i3/i5/N1".
-		if (!it->empty() && (*it)[0] == '/')
+		// erase the '/' in the beginning of the hierarchical name for printing (keep original stored)
+		string out = *it;
+		if (!out.empty() && out[0] == '/')
 		{
-			it->erase(0, 1);
+			out.erase(0, 1);
 		}
-		fv << *it;
+		fv << out;
 		if (next(it) != listOfHierarchicalNameOfDeepestReachingNodes.end())
 		{
 			fv << endl;
