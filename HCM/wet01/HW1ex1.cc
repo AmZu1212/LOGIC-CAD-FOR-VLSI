@@ -321,17 +321,94 @@ int main(int argc, char **argv)
 	//	Order the node names lexicographically. assign your answer for section f to the given
 	//	(assign your answer for section f to listOfHierarchicalNameOfDeepestReachingNodes)
 	list<string> listOfHierarchicalNameOfDeepestReachingNodes;
+	// recompute deepest leaf nodes (depth == deepestReach) by walking the instance hierarchy
+	listOfHierarchicalNameOfDeepestReachingNodes.clear();
+	int maxDepthEncountered = 1;
+	vector<tuple<hcmInstance *, int, string>> instStack;
+	for (auto instPair : topCell->getInstances())
+	{
+		hcmInstance *inst = instPair.second;
+		instStack.push_back(make_tuple(inst, 1, inst->getName())); // top inst depth = 1
+	}
 
-	
+	// first pass: find max depth encountered
+	for (size_t idx = 0; idx < instStack.size(); ++idx)
+	{
+		hcmInstance *inst = get<0>(instStack[idx]);
+		int depth = get<1>(instStack[idx]);
+		hcmCell *master = inst->masterCell();
+		if (depth > maxDepthEncountered)
+		{
+			maxDepthEncountered = depth;
+		}
+		for (auto childPair : master->getInstances())
+		{
+			hcmInstance *childInst = childPair.second;
+			instStack.push_back(make_tuple(childInst, depth + 1, get<2>(instStack[idx]) + string("/") + childInst->getName()));
+		}
+	}
+
+	int depthAdjust = deepestReach - maxDepthEncountered;
+	instStack.clear();
+	for (auto instPair : topCell->getInstances())
+	{
+		hcmInstance *inst = instPair.second;
+		instStack.push_back(make_tuple(inst, 1, inst->getName()));
+	}
+
+	while (!instStack.empty())
+	{
+		tuple<hcmInstance *, int, string> current = instStack.back();
+		instStack.pop_back();
+		hcmInstance *inst = get<0>(current);
+		int depth = get<1>(current);
+		string path = get<2>(current);
+
+		hcmCell *master = inst->masterCell();
+		if (master->getInstances().empty())
+		{
+			if (depth + depthAdjust == deepestReach)
+			{
+				for (auto nodePair : master->getNodes())
+				{
+					hcmNode *node = nodePair.second;
+					if (globalNodes.find(node->getName()) != globalNodes.end())
+					{
+						continue;
+					}
+					string hierName = path + string("/") + node->getName();
+					listOfHierarchicalNameOfDeepestReachingNodes.push_back(hierName);
+				}
+			}
+			continue;
+		}
+
+		for (auto childPair : master->getInstances())
+		{
+			hcmInstance *childInst = childPair.second;
+			instStack.push_back(make_tuple(childInst, depth + 1, path + string("/") + childInst->getName()));
+		}
+	}
+
+	listOfHierarchicalNameOfDeepestReachingNodes.sort();
 
 	// not doing a debug print for this since this is long.
-	for (auto it : listOfHierarchicalNameOfDeepestReachingNodes)
+	for (auto it = listOfHierarchicalNameOfDeepestReachingNodes.begin();
+		 it != listOfHierarchicalNameOfDeepestReachingNodes.end();
+		 ++it)
 	{
 		// erase the '/' in the beginning of the hierarchical name.
 		// i.e. the name in listOfHierarchicalNameOfDeepestReachingNodes should be "/i1/i2/i3/i5/N1",
 		// and the printed name should be "i1/i2/i3/i5/N1".
-		it.erase(0, 1);
-		fv << it << endl;
+		if (!it->empty() && (*it)[0] == '/')
+		{
+			it->erase(0, 1);
+		}
+		fv << *it;
+		if (next(it) != listOfHierarchicalNameOfDeepestReachingNodes.end())
+		{
+			fv << endl;
+		}
 	}
 
 	return (0);
