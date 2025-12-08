@@ -7,15 +7,16 @@ cd "$(dirname "$0")"
 [ -e gl_rank ] && rm gl_rank
 
 make clean
-make gl_stat
+rm -f *.stat *.rank
+make all
 
 # gl_stat Runs (u can use "-v" for more prints)
 ./gl_stat TopLevel1355 stdcell.v c1355high.v
 ./gl_stat TopLevel2670 stdcell.v c2670high.v
 
 # gl_rank Runs
-##./gl_rank -v TopLevel1355 stdcell.v c1355high.v
-##./gl_rank -v TopLevel2670 stdcell.v c2670high.v
+./gl_rank TopLevel1355 stdcell.v c1355high.v
+./gl_rank TopLevel2670 stdcell.v c2670high.v
 
 
 # Compare stats: report per-field for a–e with expected/actual; f only says match/not
@@ -45,6 +46,17 @@ check_stats() {
   return $status
 }
 
+check_rank() {
+  local file="$1" expected="$2"
+  if diff -q "$expected" "$file" >/dev/null; then
+    echo "rank matches: $file"
+    return 0
+  else
+    echo "rank differs for $file (run 'diff -u \"$expected\" \"$file\"' to view)"
+    return 1
+  fi
+}
+
 echo "------------- Runs Are Done ------------------"
 
 echo ""
@@ -56,6 +68,7 @@ overall_status=0
 # run checks without exiting early on mismatch
 set +e
 check_stats "TopLevel1355.stat" "Expected Outputs/TopLevel1355.stat.expected" || overall_status=1
+check_rank "TopLevel1355.rank" "Expected Outputs/TopLevel1355.rank.expected" || overall_status=1
 
 echo ""
 echo ""
@@ -64,6 +77,7 @@ echo "===== 2670 Check ====="
 
 
 check_stats "TopLevel2670.stat" "Expected Outputs/TopLevel2670.stat.expected" || overall_status=1
+check_rank "TopLevel2670.rank" "Expected Outputs/TopLevel2670.rank.expected" || overall_status=1
 set -e
 
 echo ""
