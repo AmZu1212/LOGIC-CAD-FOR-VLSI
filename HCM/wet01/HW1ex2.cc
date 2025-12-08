@@ -2,6 +2,10 @@
 #include <signal.h>
 #include <sstream>
 #include <fstream>
+#include <queue>
+#include <set>
+#include <map>
+#include <algorithm>
 #include "hcm.h"
 #include "flat.h"
 
@@ -80,6 +84,138 @@ int main(int argc, char **argv) {
   //---------------------------------------------------------------------------------//
   //enter your code here 
   //---------------------------------------------------------------------------------//
+
+  // flatten the design to operate on a flat netlist
+  hcmCell *flatCell = hcmFlatten(cellName + string("_flat_rank"), topCell, globalNodes);
+
+  // gather instances
+  map<string, hcmInstance *> allInsts = flatCell->getInstances();
+
+  // ranking via topological propagation
+  const string TOP_SRC = "__TOP_INPUT__";
+  const int NEG_INF = -1000000;
+  map<string, int> rank;
+  map<string, int> indeg;
+  map<string, vector<string>> adj;
+
+  // init rank/indeg for all instances
+  for (auto &ipair : allInsts)
+  {
+    rank[ipair.first] = NEG_INF;
+    indeg[ipair.first] = 0;
+  }
+  rank[TOP_SRC] = -1;
+  indeg[TOP_SRC] = 0;
+
+  // build edges driver->sink
+  set<pair<string, string>> edges;
+  for (auto &npair : flatCell->getNodes())
+  {
+    hcmNode *node = npair.second;
+    if (globalNodes.find(node->getName()) != globalNodes.end())
+    {
+      continue;
+    }
+
+    vector<string> drivers;
+    vector<string> sinks;
+
+    for (auto &ippair : node->getInstPorts())
+    {
+      hcmInstPort *ip = ippair.second;
+      hcmPort *mport = ip->getPort();
+      if (!mport)
+      {
+        continue;
+      }
+      string iname = ip->getInst()->getName();
+      if (mport->getDirection() == OUT || mport->getDirection() == IN_OUT)
+      {
+        drivers.push_back(iname);
+      }
+      if (mport->getDirection() == IN || mport->getDirection() == IN_OUT)
+      {
+        sinks.push_back(iname);
+      }
+    }
+
+    hcmPort *p = node->getPort();
+    if (p && (p->getDirection() == IN || p->getDirection() == IN_OUT))
+    {
+      drivers.push_back(TOP_SRC);
+    }
+
+    for (const auto &d : drivers)
+    {
+      for (const auto &s : sinks)
+      {
+        if (d == s)
+        {
+          continue;
+        }
+        pair<string, string> e(d, s);
+        if (edges.insert(e).second)
+        {
+          adj[d].push_back(s);
+          indeg[s]++; // ensure entry exists
+          if (indeg.find(d) == indeg.end())
+          {
+            indeg[d] = 0;
+          }
+        }
+      }
+    }
+  }
+
+  // Kahn topological traversal, longest-path style
+  queue<string> q;
+  for (auto &ipair : indeg)
+  {
+    if (ipair.second == 0)
+    {
+      if (rank.find(ipair.first) == rank.end())
+      {
+        rank[ipair.first] = NEG_INF;
+      }
+      q.push(ipair.first);
+    }
+  }
+
+  while (!q.empty())
+  {
+    string cur = q.front();
+    q.pop();
+    int curRank = rank[cur];
+    for (const auto &nxt : adj[cur])
+    {
+      if (curRank != NEG_INF && rank[nxt] < curRank + 1)
+      {
+        rank[nxt] = curRank + 1;
+      }
+      indeg[nxt]--;
+      if (indeg[nxt] == 0)
+      {
+        q.push(nxt);
+      }
+    }
+  }
+
+  // build and sort output
+  for (auto &ipair : rank)
+  {
+    if (ipair.second >= 0 && ipair.first != TOP_SRC)
+    {
+      maxRankVector.push_back(make_pair(ipair.second, ipair.first));
+    }
+  }
+  sort(maxRankVector.begin(), maxRankVector.end(),
+       [](const pair<int, string> &a, const pair<int, string> &b)
+       {
+         if (a.first != b.first)
+           return a.first < b.first;
+         return a.second < b.second;
+       });
+
   for(auto itr = maxRankVector.begin(); itr != maxRankVector.end(); itr++){
 		fv << itr->first << " " << itr->second << endl;
 	}
