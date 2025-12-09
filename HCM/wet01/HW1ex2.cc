@@ -8,8 +8,28 @@
 #include <algorithm>
 #include "hcm.h"
 #include "flat.h"
-
+#define NEG_INF -1000000 // important to signify the default rank.
+#define TOP_SRC "__TOP_INPUT__"
 using namespace std;
+
+// Helper Functions Declarations
+
+/**
+ * @brief Build driver -> sink edges for a flattened netlist.
+ *
+ * Skips global nodes, classifies instPorts by direction (IN->sink, OUT->driver,
+ * IN_OUT->both), and adds a synthetic TOP_SRC for top inputs. Each unique
+ * driver/sink pair updates @p edges, fills @p adj, and bumps sink indegree;
+ * drivers are seeded with indegree 0.
+ */
+void BuildEdges(hcmCell *flatCell, set<string> &globalNodes, map<string, vector<string>> &adj, map<string, int> &indeg, set<pair<string, string>> &edges);
+/// Collect all non-top entries with non-negative rank into the result vector.
+void InsertResult(vector<pair<int, string>> &maxRankVector, map<string, int> &rank);
+/// Sort results by rank, then name (lexicographic) in-place.
+void SortResults(vector<pair<int, string>> &maxRankVector);
+
+/// Emit each (rank, name) pair to the output stream, one per line.
+void PrintResults(const vector<pair<int, string>> &maxRankVector, ofstream &fv);
 
 bool verbose = false;
 
@@ -96,130 +116,178 @@ int main(int argc, char **argv)
 	//				Alexey Vasilayev - 323686683
 	//  === HW1ex2 ANSWER STARTS HERE ===
 
-	// flatten the design to operate on a flat netlist
+	// we went for a BFS style approach, where we start with "source" nodes, and we "tick off" nodes as we process their drivers, to then be the next sources etc.
+
+	// we have some long lines ahead, we recommend using "code wrapping" in your editor of choice.
+
+	// *** please note, the helper functions have comments explaining their purpose in the declarations in the top of this file. the definitions are at the bottom of this file.
+
+	// get a flat the design
 	hcmCell *flatCell = hcmFlatten(cellName + string("_flat_rank"), topCell, globalNodes);
 
-	// gather instances
+	// get all instances
 	map<string, hcmInstance *> allInsts = flatCell->getInstances();
 
-	// ranking via topological propagation
-	const string TOP_SRC = "__TOP_INPUT__";
-	const int NEG_INF = -1000000;
+	// ranking via source propagation (topological order)
+	map<string, vector<string>> adj;
 	map<string, int> rank;
 	map<string, int> indeg;
-	map<string, vector<string>> adj;
 
 	// initialize all "vertices" ranks to -inf
-	for (auto &ipair : allInsts)
+	for (auto &instance : allInsts)
 	{
-		rank[ipair.first] = NEG_INF;
-		indeg[ipair.first] = 0;
+		rank[instance.first] = NEG_INF;
+		indeg[instance.first] = 0;
 	}
+
+	// TOP_SRC is a fake outer driver. so its on level "-1"
 	rank[TOP_SRC] = -1;
 	indeg[TOP_SRC] = 0;
 
 	// build edges driver->sink
 	set<pair<string, string>> edges;
-	for (auto &npair : flatCell->getNodes())
-	{
-		hcmNode *node = npair.second;
-		if (globalNodes.find(node->getName()) != globalNodes.end())
-		{
-			continue;
-		}
+	BuildEdges(flatCell, globalNodes, adj, indeg, edges);
 
+	// init queue with only the initial source nodes
+	queue<string> sourceQueue;
+	for (auto &instance : indeg)
+	{
+		// only insert nodes without "pre-requisites" (i.e a source node)
+		if (instance.second == 0)
+		{
+			if (rank.find(instance.first) == rank.end())
+			{
+				rank[instance.first] = NEG_INF;
+			}
+			sourceQueue.push(instance.first);
+		}
+	}
+
+	// run BFS style rank propogation, when a node is "ready", i.e all its drivers where processed, we add it to the source queue.
+	while (!sourceQueue.empty())
+	{
+		// get head
+		string cur = sourceQueue.front();
+		sourceQueue.pop();
+		int curRank = rank[cur];
+
+		for (const auto &next : adj[cur])
+		{
+			// if the next rank is smaller than current + 1, update it
+			if (curRank != NEG_INF && rank[next] < curRank + 1)
+			{
+				rank[next] = curRank + 1;
+			}
+
+			// mark port as done (-1 source), and if 0, insert to "drivers" queue
+			indeg[next]--;
+			if (indeg[next] == 0)
+			{
+				sourceQueue.push(next);
+			}
+		}
+	}
+
+	// insert, sort & print results
+	InsertResult(maxRankVector, rank);
+	// please note:
+	//		since we sort the results (O(VlogV)), it is technically not O(V),
+	//		but since our algorithm is O(V+E), and in this case E is some multiple of
+	//		V, we will say it is linear in the number of instances.
+	SortResults(maxRankVector);
+	PrintResults(maxRankVector, fv);
+
+	return (0);
+}
+
+void BuildEdges(hcmCell *flatCell, set<string> &globalNodes, map<string, vector<string>> &adj, map<string, int> &indeg, set<pair<string, string>> &edges)
+{
+	for (auto &nodeItr : flatCell->getNodes())
+	{
+		// get current node
+		hcmNode *node = nodeItr.second;
+
+		// skip global nodes
+		if (globalNodes.find(node->getName()) != globalNodes.end())
+			continue;
+
+		// we want to split ports into drivers and sinks
 		vector<string> drivers;
 		vector<string> sinks;
 
-		for (auto &ippair : node->getInstPorts())
+		// insert fake top driver if needed
+		hcmPort *port = node->getPort();
+		if (port != nullptr)
 		{
-			hcmInstPort *ip = ippair.second;
-			hcmPort *mport = ip->getPort();
-			if (!mport)
+			hcmPortDir dir = port->getDirection();
+			if (dir == IN || dir == IN_OUT)
 			{
+				drivers.push_back(TOP_SRC);
+			}
+		}
+
+		// classify whether it is in/out/both
+		for (auto &portItr : node->getInstPorts())
+		{
+			hcmInstPort *port = portItr.second;
+			hcmPort *masterPort = port->getPort();
+			if (!masterPort)
+				continue; // null guard
+
+			// insert based on enum type
+			string instanceName = port->getInst()->getName();
+			switch (masterPort->getDirection())
+			{
+			case IN:
+				sinks.push_back(instanceName);
+				break;
+			case OUT:
+				drivers.push_back(instanceName);
+				break;
+			case IN_OUT:
+				sinks.push_back(instanceName);
+				drivers.push_back(instanceName);
+				break;
+			default:
 				continue;
 			}
-			string iname = ip->getInst()->getName();
-			if (mport->getDirection() == OUT || mport->getDirection() == IN_OUT)
-			{
-				drivers.push_back(iname);
-			}
-			if (mport->getDirection() == IN || mport->getDirection() == IN_OUT)
-			{
-				sinks.push_back(iname);
-			}
 		}
 
-		hcmPort *p = node->getPort();
-		if (p && (p->getDirection() == IN || p->getDirection() == IN_OUT))
+		// build edges
+		for (const auto &driver : drivers)
 		{
-			drivers.push_back(TOP_SRC);
-		}
-
-		for (const auto &d : drivers)
-		{
-			for (const auto &s : sinks)
+			// add driver if doesnt exists yet
+			if (indeg.find(driver) == indeg.end())
 			{
-				if (d == s)
-				{
+				indeg[driver] = 0;
+			}
+
+			for (const auto &sink : sinks)
+			{
+				// ignore in-outs (it is not a real edge)
+				if (driver == sink)
 					continue;
-				}
-				pair<string, string> e(d, s);
-				if (edges.insert(e).second)
+
+				// create edge
+				pair<string, string> edge(driver, sink);
+
+				// insert returns true to the second element if successful
+				auto result = edges.insert(edge);
+
+				// update adj & indeg
+				if (result.second)
 				{
-					adj[d].push_back(s);
-					indeg[s]++; // ensure entry exists
-					if (indeg.find(d) == indeg.end())
-					{
-						indeg[d] = 0;
-					}
+					// connect driver to sink
+					adj[driver].push_back(sink);
+					indeg[sink]++;
 				}
 			}
 		}
 	}
+}
 
-	// Kahn topological traversal, longest-path style
-	queue<string> q;
-	for (auto &ipair : indeg)
-	{
-		if (ipair.second == 0)
-		{
-			if (rank.find(ipair.first) == rank.end())
-			{
-				rank[ipair.first] = NEG_INF;
-			}
-			q.push(ipair.first);
-		}
-	}
-
-	while (!q.empty())
-	{
-		string cur = q.front();
-		q.pop();
-		int curRank = rank[cur];
-		for (const auto &nxt : adj[cur])
-		{
-			if (curRank != NEG_INF && rank[nxt] < curRank + 1)
-			{
-				rank[nxt] = curRank + 1;
-			}
-			indeg[nxt]--;
-			if (indeg[nxt] == 0)
-			{
-				q.push(nxt);
-			}
-		}
-	}
-
-	// insert pairs into maxRankVector
-	for (auto &ipair : rank)
-	{
-		if (ipair.second >= 0 && ipair.first != TOP_SRC)
-		{
-			maxRankVector.push_back(make_pair(ipair.second, ipair.first));
-		}
-	}
-
+void SortResults(vector<pair<int, string>> &maxRankVector)
+{
 	// sort by rank, then by name
 	sort(maxRankVector.begin(), maxRankVector.end(),
 		 [](const pair<int, string> &a, const pair<int, string> &b)
@@ -228,12 +296,23 @@ int main(int argc, char **argv)
 				 return a.first < b.first;
 			 return a.second < b.second;
 		 });
+}
 
-	// print to file
+void PrintResults(const vector<pair<int, string>> &maxRankVector, ofstream &fv)
+{
 	for (auto itr = maxRankVector.begin(); itr != maxRankVector.end(); itr++)
 	{
 		fv << itr->first << " " << itr->second << endl;
 	}
+}
 
-	return (0);
+void InsertResult(vector<pair<int, string>> &maxRankVector, map<string, int> &rank)
+{
+	for (auto &ipair : rank)
+	{
+		if (ipair.second >= 0 && ipair.first != "__TOP_INPUT__")
+		{
+			maxRankVector.push_back(make_pair(ipair.second, ipair.first));
+		}
+	}
 }
