@@ -1,0 +1,237 @@
+==================================================================================
+SAT-Based Formal Equivalence Checker - Test Cases
+==================================================================================
+
+TEST 1: Equivalent Circuits (test0000.v vs test0001.v)
+-------------------------------------------------------
+Description: Both circuits implement the same logic with slightly different 
+             gate arrangements (swapped operand order in AND2 and OR2).
+             
+Command:
+  ./gl_verilog_fev -v -s TopLevel0000 stdcell.v test0000.v -i TopLevel0001 stdcell.v test0001.v
+
+Expected Result:
+  NOT SATISFIABLE! (Designs are equivalent)
+
+Explanation:
+  Since the circuits are logically equivalent, the SAT solver cannot find
+  any input combination that produces different outputs. The miter formula
+  is UNSATISFIABLE.
+
+
+TEST 2: Non-Equivalent Circuits (test1110.v vs test1111.v)
+----------------------------------------------------------
+Description: Circuits differ in output O1. test1110 produces O1 = ~I1, while
+             test1111 produces O1 = ~~I1 = I1 (double negation).
+             
+Command:
+  ./gl_verilog_fev -v -s TopLevel1110 stdcell.v test1110.v -i TopLevel1111 stdcell.v test1111.v
+
+Expected Result:
+  SATISFIABLE! (Designs are NOT equivalent)
+  
+  Counterexample input vector:
+    I0 = 0 (or 1)
+    I1 = 0 (or 1)
+
+Explanation:
+  The circuits differ in O1 for ANY input (O1_spec = ~I1, O1_imp = I1).
+  The SAT solver finds a satisfying assignment where the outputs differ.
+
+
+TEST 3: Self-Check (circuit vs itself)
+---------------------------------------
+Description: Compare a circuit against itself to verify checker correctness.
+
+Command:
+  ./gl_verilog_fev -s TopLevel0000 stdcell.v test0000.v -i TopLevel0000 stdcell.v test0000.v
+
+Expected Result:
+  NOT SATISFIABLE! (Designs are equivalent)
+
+Explanation:
+  A circuit is always equivalent to itself. This is a sanity check.
+
+
+TEST 4: Equivalent Circuits with Large NAND (test_nand5_a.v vs test_nand5_b.v)
+------------------------------------------------------------------------------
+Description: Both circuits implement NAND5 logic. test_nand5_a uses nand5 directly,
+             test_nand5_b uses and5 followed by inv (De Morgan equivalent).
+             Tests generic loop-based Tseitin encoding for large gates.
+             
+Command:
+  ./gl_verilog_fev -v -s TopLevelNand5A stdcell.v test_nand5_a.v -i TopLevelNand5B stdcell.v test_nand5_b.v
+
+Expected Result:
+  NOT SATISFIABLE! (Designs are equivalent)
+
+Explanation:
+  NAND5(a,b,c,d,e) = ~(a & b & c & d & e) = ~AND5(a,b,c,d,e)
+  Both implementations produce identical outputs for all 32 input combinations.
+  Verifies that generic nand5 and and5 clause generation is correct.
+
+
+TEST 5: Equivalent Circuits with Large OR (test_or7_a.v vs test_or7_b.v)
+-------------------------------------------------------------------------
+Description: Both circuits implement OR7 and NOR3 logic with different gate
+             structures. test_or7_a uses or7/nor3 directly, test_or7_b uses
+             De Morgan's law equivalents.
+             Tests generic loop-based encoding for large OR/NOR gates.
+             
+Command:
+  ./gl_verilog_fev -v -s TopLevelOr7A stdcell.v test_or7_a.v -i TopLevelOr7B stdcell.v test_or7_b.v
+
+Expected Result:
+  NOT SATISFIABLE! (Designs are equivalent)
+
+Explanation:
+  OR7 = ~NAND7(~inputs) and NOR3 = ~OR3 by De Morgan's laws.
+  Both implementations produce identical outputs for all input combinations.
+  Verifies that generic or7, nor3, nand7, and or3 clause generation is correct.
+
+
+TEST 6: Sequential Circuits with DFF (test4440.v vs test4441.v)
+----------------------------------------------------------------
+Description: Both circuits implement the same logic with one DFF register.
+             O0 is combinational (implemented differently).
+             O1 has logic AFTER the DFF: O1 = register(~I1) & I0.
+             Tests DFF matching and logic after sequential elements.
+             
+Command:
+  ./gl_verilog_fev -v -s TopLevel4440 stdcell.v test4440.v -i TopLevel4441 stdcell.v test4441.v
+
+Expected Result:
+  NOT SATISFIABLE! (Designs are equivalent)
+
+Explanation:
+  Both circuits have O0 = (I1 & ~I0) | I0 (combinational, different gates).
+  Both circuits have q1 = register(~I1) through dff1 (same DFF name).
+  Both circuits have O1 = q1 & I0, but implemented differently:
+    - test4440: direct and2 gate
+    - test4441: using nand gates (double negation)
+  DFF Q outputs (q1) are constrained equal (same state).
+  Verifies DFF matching and logic after flip-flops.
+
+
+TEST 7: Comprehensive Gate Test (test5550.v vs test5551.v)
+-----------------------------------------------------------
+Description: Tests all gate types and sizes from stdcell.v (2-9 inputs).
+             test5550 uses direct gates (inv, and2-9, or2-9, nand2-9, nor2-9, xor2).
+             test5551 uses equivalent implementations (AND=~NAND, OR=~NOR, not=inv).
+             Verifies Tseitin encoding for all supported gates and sizes.
+             
+Command:
+  ./gl_verilog_fev -v -s TopLevel5550 stdcell.v test5550.v -i TopLevel5551 stdcell.v test5551.v
+
+Expected Result:
+  NOT SATISFIABLE! (Designs are equivalent)
+
+Explanation:
+  All outputs should match:
+  - inv vs not (synonyms)
+  - buffer (same)
+  - AND vs ~NAND (De Morgan) for sizes 2-9
+  - OR vs ~NOR (De Morgan) for sizes 2-9
+  - NAND, NOR (direct) for sizes 2-9
+  - XOR (same)
+  Comprehensive test of generic loop-based Tseitin encoding for all gate sizes.
+
+
+TEST 8: ISCAS Benchmark - c0409 vs c0410 (Non-Equivalent)
+-----------------------------------------------------------
+Description: Compare two ISCAS-85 benchmark circuits that have differences.
+             
+Command:
+  ./gl_verilog_fev -s TopLevel0409 stdcell.v c0409.v -i TopLevel0410 stdcell.v c0410.v
+
+Expected Result:
+  SATISFIABLE! (Designs are NOT equivalent)
+
+Explanation:
+  These circuits have structural or functional differences. The SAT solver
+  will find an input vector demonstrating non-equivalence.
+
+
+TEST 9: ISCAS Benchmark - c1355 vs c1356 (Equivalent)
+------------------------------------------------------
+Description: Compare two ISCAS-85 benchmark circuits that should be equivalent.
+             
+Command:
+  ./gl_verilog_fev -s TopLevel1355 stdcell.v c1355.v -i TopLevel1356 stdcell.v c1356.v
+
+Expected Result:
+  NOT SATISFIABLE! (Designs are equivalent)
+
+Explanation:
+  These circuits implement the same functionality with possibly different
+  gate-level implementations. Should be logically equivalent.
+
+
+TEST 10: ISCAS Benchmark - c1404 vs c1405 (Equivalent)
+-------------------------------------------------------
+Description: Compare two ISCAS-85 benchmark circuits that should be equivalent.
+             
+Command:
+  ./gl_verilog_fev -s TopLevel1404 stdcell.v c1404.v -i TopLevel1405 stdcell.v c1405.v
+
+Expected Result:
+  NOT SATISFIABLE! (Designs are equivalent)
+
+Explanation:
+  These circuits implement the same functionality. Should be logically equivalent.
+
+
+TEST 11: ISCAS Benchmark - c2670 vs c2671 (Non-Equivalent)
+-----------------------------------------------------------
+Description: Compare c2670 (12-bit unit-distance code checker) with c2671 variant.
+             
+Command:
+  ./gl_verilog_fev -s TopLevel2670 stdcell.v c2670.v -i TopLevel2671 stdcell.v c2671.v
+
+Expected Result:
+  SATISFIABLE! (Designs are NOT equivalent)
+
+Explanation:
+  c2670 and c2671 have functional differences. The SAT solver will find
+  a distinguishing input pattern.
+
+
+TEST 12: ISCAS Benchmark - c2670 vs c2672 (Equivalent)
+-------------------------------------------------------
+Description: Compare c2670 (12-bit unit-distance code checker) with c2672 variant.
+             
+Command:
+  ./gl_verilog_fev -s TopLevel2670 stdcell.v c2670.v -i TopLevel2672 stdcell.v c2672.v
+
+Expected Result:
+  NOT SATISFIABLE! (Designs are equivalent)
+
+Explanation:
+  c2670 and c2672 implement the same 12-bit unit-distance (Gray) code
+  checker functionality. Should be logically equivalent.
+
+
+TEST 13: ISCAS Benchmark - c2806 vs c2807 (Non-Equivalent)
+-----------------------------------------------------------
+Description: Compare two large ISCAS-85 benchmark circuits with differences.
+             
+Command:
+  ./gl_verilog_fev -s TopLevel2806 stdcell.v c2806.v -i TopLevel2807 stdcell.v c2807.v
+
+Expected Result:
+  SATISFIABLE! (Designs are NOT equivalent)
+
+Explanation:
+  These circuits have functional differences. The SAT solver will find
+  a distinguishing input pattern.
+
+
+==================================================================================
+Notes:
+- Use -v flag for verbose output (shows variable mappings, clauses, etc.)
+- UNSAT means designs are equivalent (no input causes different outputs)
+- SAT means designs are NOT equivalent (counterexample input vector is printed)
+- For sequential circuits, DFF Q outputs are constrained equal (same state)
+- Only combinational equivalence is checked (one time step)
+==================================================================================
+
