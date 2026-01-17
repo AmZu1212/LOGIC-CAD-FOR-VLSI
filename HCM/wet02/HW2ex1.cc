@@ -128,6 +128,8 @@ int main(int argc, char **argv)
 	//				Amir Zuabi 		 - 212606222
 	//				Alexey Vasilayev - 323686683
 
+	// defines & helper functions (theres is alot, miniSAT building starts later)
+
 	// Map each node name to a SAT variable (separate maps for spec and impl).
 	map<string, int> specVarMap;
 	map<string, int> implVarMap;
@@ -141,8 +143,8 @@ int main(int argc, char **argv)
 	// DFF bookkeeping: capture D/Q nodes to match by instance name.
 	struct DffInfo
 	{
-		hcmNode *d;
-		hcmNode *q;
+		hcmNode *d; // input
+		hcmNode *q; // output
 		DffInfo() : d(NULL), q(NULL) {}
 		DffInfo(hcmNode *dNode, hcmNode *qNode) : d(dNode), q(qNode) {}
 	};
@@ -174,11 +176,11 @@ int main(int argc, char **argv)
 		varMap[name] = v;
 		if (name == "VDD")
 		{
-			addClause({mkLit(v)});
+			addClause({mkLit(v)}); // force high
 		}
 		else if (name == "VSS")
 		{
-			addClause({~mkLit(v)});
+			addClause({~mkLit(v)}); // force low
 		}
 		return v;
 	};
@@ -205,7 +207,7 @@ int main(int argc, char **argv)
 			const hcmPort *port = node->getPort();
 			if (!port)
 			{
-				continue;
+				continue; // if null skip
 			}
 			string name = node->getName();
 			hcmPortDir dir = port->getDirection();
@@ -217,7 +219,7 @@ int main(int argc, char **argv)
 			{
 				pos[name] = node;
 			}
-			else if (dir == IN_OUT)
+			else if (dir == IN_OUT) // *** check this wont make problems down the line
 			{
 				pis[name] = node;
 				pos[name] = node;
@@ -225,6 +227,7 @@ int main(int argc, char **argv)
 		}
 	};
 
+	// *** currently uses static names, maybe this is a bad idea. check stdcell later
 	// Encode basic gate types into CNF using Tseytin clauses.
 	auto encodeGate = [&](const string &gateName, const vector<int> &inputs, int outputVar)
 	{
@@ -235,7 +238,7 @@ int main(int argc, char **argv)
 				return;
 			}
 			int a = inputs[0];
-			addClause({~mkLit(outputVar), mkLit(a)});
+			addClause({~mkLit(outputVar), mkLit(a)}); // a<->b cuz in == out (buffer)
 			addClause({mkLit(outputVar), ~mkLit(a)});
 			return;
 		}
@@ -246,8 +249,8 @@ int main(int argc, char **argv)
 				return;
 			}
 			int a = inputs[0];
-			addClause({~mkLit(outputVar), ~mkLit(a)});
-			addClause({mkLit(outputVar), mkLit(a)});
+			addClause({~mkLit(outputVar), ~mkLit(a)}); // a -> not b (inverter)
+			addClause({mkLit(outputVar), mkLit(a)});   // not a -> b
 			return;
 		}
 		if (startsWith(gateName, "xor"))
@@ -309,6 +312,7 @@ int main(int argc, char **argv)
 			addClause(clause);
 			return;
 		}
+		// *** maybe decide on a better way to do this, strings are really not safe...
 		if (gateName == "or" || (startsWith(gateName, "or") && !startsWith(gateName, "nor")))
 		{
 			for (size_t i = 0; i < inputs.size(); i++)
@@ -371,16 +375,22 @@ int main(int argc, char **argv)
 					getVar(varMap, qNode);
 				}
 				dffMap[inst->getName()] = DffInfo(dNode, qNode);
-				continue;
+				continue; // handeled later
 			}
 
 			if (outputs.empty())
 			{
-				continue;
+				continue; // skip dead ends (not sure this hits)
 			}
+
+			// run encode routine
 			encodeGate(gateName, inputs, outputs[0]);
 		}
 	};
+
+
+
+	// Real SAT building starts here...
 
 	// Gather PIs/POs from both designs.
 	collectPorts(flatSpecCell, specPIs, specPOs);
@@ -398,6 +408,7 @@ int main(int argc, char **argv)
 		{
 			continue;
 		}
+		// this is important. we match x in spec to x in impl
 		int a = getVar(specVarMap, piPair.second);
 		int b = getVar(implVarMap, implPIs[name]);
 		addEq(a, b);
@@ -412,11 +423,13 @@ int main(int argc, char **argv)
 		{
 			continue;
 		}
+		// same as the inputs...
 		int a = getVar(specVarMap, poPair.second);
 		int b = getVar(implVarMap, implPOs[name]);
 		comparePairs.push_back(make_pair(a, b));
 	}
 
+	// DFF routine, same idea as the input/outputs. we match the outs and ins.
 	// Match DFFs by name: tie Q (same state), compare D as outputs.
 	for (auto &dffPair : specDffs)
 	{
@@ -468,6 +481,21 @@ int main(int argc, char **argv)
 	if (sat)
 	{
 		cout << "SATISFIABLE!" << endl;
+		// Print one counterexample input vector (PI assignments).
+		cout << "Counterexample (PIs):" << endl;
+		for (auto &piPair : specPIs)
+		{
+			const string &name = piPair.first;
+			int v = getVar(specVarMap, piPair.second);
+			if (v >= 0 && v < solver.nVars() && solver.model[v] != l_Undef)
+			{
+				cout << "  " << name << " = " << (solver.model[v] == l_True ? 1 : 0) << endl;
+			}
+			else
+			{
+				cout << "  " << name << " = X" << endl;
+			}
+		}
 	}
 	else
 	{
