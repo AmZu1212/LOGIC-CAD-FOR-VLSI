@@ -24,7 +24,7 @@ bool verbose = false;
 ///////////////////////////////////////////////////////////////////////////
 int main(int argc, char **argv) {
 	int argIdx = 1;
-	int anyErr = 0;
+	int anyError = 0;
 	unsigned int i;
 	vector<string> specVlgFiles;
 	vector<string> implementationVlgFiles;
@@ -33,7 +33,7 @@ int main(int argc, char **argv) {
     Solver solver;
 	
 	if (argc < 8) { 
-		anyErr++;
+		anyError++;
 	} 
     else {
 		if (!strcmp(argv[argIdx], "-v")) {
@@ -55,11 +55,11 @@ int main(int argc, char **argv) {
 		
 		if (implementationVlgFiles.size() < 2 || specVlgFiles.size() < 2) {
 			cerr << "-E- At least top-level and single verilog file required for spec model" << endl;
-			anyErr++;
+			anyError++;
 		}
 	}
 
-	if (anyErr) {
+	if (anyError) {
 		cerr << "Usage: " << argv[0] << "  [-v] -s top-cell spec_file1.v spec_file2.v -i top-cell impl_file1.v impl_file2.v ... \n";
 		exit(1);
 	}
