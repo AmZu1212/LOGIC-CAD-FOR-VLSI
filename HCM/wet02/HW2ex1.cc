@@ -78,7 +78,7 @@ int main(int argc, char **argv)
 	globalNodes.insert("VDD");
 	globalNodes.insert("VSS");
 
-	// spec hcm
+	// Spec HCM routine
 	hcmDesign *specDesign = new hcmDesign("specDesign");
 	for (i = 0; i < specVlgFiles.size(); i++)
 	{
@@ -99,7 +99,7 @@ int main(int argc, char **argv)
 
 	hcmCell *flatSpecCell = hcmFlatten(specCellName + string("_flat"), topSpecCell, globalNodes);
 
-	// implementation hcm
+	// Impl HCM routine
 	hcmDesign *impDesign = new hcmDesign("impDesign");
 	for (i = 0; i < implementationVlgFiles.size(); i++)
 	{
@@ -122,18 +122,23 @@ int main(int argc, char **argv)
 
 	//---------------------------------------------------------------------------------//
 	// enter your code below
-	/// === ANSWERS START HERE ===
+	//
+	/// === ANSWERS START HERE === ///
 	// Written by:
 	//				Amir Zuabi 		 - 212606222
 	//				Alexey Vasilayev - 323686683
 
+	// Map each node name to a SAT variable (separate maps for spec and impl).
 	map<string, int> specVarMap;
 	map<string, int> implVarMap;
+
+	// Primary input/output nodes keyed by name.
 	map<string, hcmNode *> specPIs;
 	map<string, hcmNode *> specPOs;
 	map<string, hcmNode *> implPIs;
 	map<string, hcmNode *> implPOs;
 
+	// DFF bookkeeping: capture D/Q nodes to match by instance name.
 	struct DffInfo
 	{
 		hcmNode *d;
@@ -141,10 +146,13 @@ int main(int argc, char **argv)
 		DffInfo() : d(NULL), q(NULL) {}
 		DffInfo(hcmNode *dNode, hcmNode *qNode) : d(dNode), q(qNode) {}
 	};
+
 	map<string, DffInfo> specDffs;
 	map<string, DffInfo> implDffs;
 
-	auto addClause = [&](const vector<Lit> &clause) {
+	// Helper to add a clause using Minisat's vec<Lit>.
+	auto addClause = [&](const vector<Lit> &clause)
+	{
 		vec<Lit> lits;
 		for (const auto &lit : clause)
 		{
@@ -153,7 +161,9 @@ int main(int argc, char **argv)
 		solver.addClause(lits);
 	};
 
-	auto getVar = [&](map<string, int> &varMap, hcmNode *node) -> int {
+	// Create/get a SAT var for a node and force constants (VDD/VSS).
+	auto getVar = [&](map<string, int> &varMap, hcmNode *node) -> int
+	{
 		string name = node->getName();
 		auto it = varMap.find(name);
 		if (it != varMap.end())
@@ -173,16 +183,22 @@ int main(int argc, char **argv)
 		return v;
 	};
 
-	auto addEq = [&](int a, int b) {
+	// Add equivalence constraint a <-> b.
+	auto addEq = [&](int a, int b)
+	{
 		addClause({~mkLit(a), mkLit(b)});
 		addClause({mkLit(a), ~mkLit(b)});
 	};
 
-	auto startsWith = [&](const string &s, const string &prefix) -> bool {
+	// String prefix match utility.
+	auto startsWith = [&](const string &s, const string &prefix) -> bool
+	{
 		return s.compare(0, prefix.size(), prefix) == 0;
 	};
 
-	auto collectPorts = [&](hcmCell *cell, map<string, hcmNode *> &pis, map<string, hcmNode *> &pos) {
+	// Collect PIs/POs from a flattened cell.
+	auto collectPorts = [&](hcmCell *cell, map<string, hcmNode *> &pis, map<string, hcmNode *> &pos)
+	{
 		for (auto &it : cell->getNodes())
 		{
 			hcmNode *node = it.second;
@@ -209,7 +225,9 @@ int main(int argc, char **argv)
 		}
 	};
 
-	auto encodeGate = [&](const string &gateName, const vector<int> &inputs, int outputVar) {
+	// Encode basic gate types into CNF using Tseytin clauses.
+	auto encodeGate = [&](const string &gateName, const vector<int> &inputs, int outputVar)
+	{
 		if (gateName == "buffer")
 		{
 			if (inputs.size() != 1)
@@ -308,7 +326,10 @@ int main(int argc, char **argv)
 		}
 	};
 
-	auto encodeCell = [&](hcmCell *cell, map<string, int> &varMap, map<string, DffInfo> &dffMap) {
+	// Encode a flattened cell: walk instances and add gate constraints.
+	// DFFs are recorded for later matching instead of encoded directly.
+	auto encodeCell = [&](hcmCell *cell, map<string, int> &varMap, map<string, DffInfo> &dffMap)
+	{
 		for (auto &instPair : cell->getInstances())
 		{
 			hcmInstance *inst = instPair.second;
@@ -361,12 +382,15 @@ int main(int argc, char **argv)
 		}
 	};
 
+	// Gather PIs/POs from both designs.
 	collectPorts(flatSpecCell, specPIs, specPOs);
 	collectPorts(flatImpCell, implPIs, implPOs);
 
+	// Build CNF for both circuits.
 	encodeCell(flatSpecCell, specVarMap, specDffs);
 	encodeCell(flatImpCell, implVarMap, implDffs);
 
+	// Constrain matching primary inputs to be equal.
 	for (auto &piPair : specPIs)
 	{
 		const string &name = piPair.first;
@@ -379,6 +403,7 @@ int main(int argc, char **argv)
 		addEq(a, b);
 	}
 
+	// Collect outputs to compare (spec vs impl).
 	vector<pair<int, int>> comparePairs;
 	for (auto &poPair : specPOs)
 	{
@@ -392,6 +417,7 @@ int main(int argc, char **argv)
 		comparePairs.push_back(make_pair(a, b));
 	}
 
+	// Match DFFs by name: tie Q (same state), compare D as outputs.
 	for (auto &dffPair : specDffs)
 	{
 		const string &name = dffPair.first;
@@ -415,6 +441,7 @@ int main(int argc, char **argv)
 		}
 	}
 
+	// Build XOR miter for each compared pair and OR them together.
 	vector<Lit> mismatchLits;
 	for (size_t idx = 0; idx < comparePairs.size(); idx++)
 	{
@@ -430,9 +457,9 @@ int main(int argc, char **argv)
 
 	if (!mismatchLits.empty())
 	{
+		// Enforce existence of at least one mismatch.
 		addClause(mismatchLits);
 	}
-
 
 	//---------------------------------------------------------------------------------//
 	solver.toDimacs(fileName.c_str());
