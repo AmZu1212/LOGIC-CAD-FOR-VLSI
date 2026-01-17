@@ -1,13 +1,13 @@
 
 /*************************************************************************/
-//0410 - SAT
+
 module Syndrome (S, R, IC, ID);
 
   input[0:31]   ID;
   input[0:7]    IC;
   input         R;
   output[0:7]   S;
-
+  
   wire[0:15]    XA;
   wire[0:7]     XB, XC, XD, XE, F, G, H;
 
@@ -769,7 +769,7 @@ endmodule /* Correction */
 
 /*************************************************************************/
 
-module  TopLevel0410 (ID, IC, R, OD);
+module  TopLevel1356 (ID, IC, R, OD);
 
   input[0:31]   ID;
   input[0:7]    IC;
@@ -781,7 +781,7 @@ module  TopLevel0410 (ID, IC, R, OD);
   Syndrome M1(S, R, IC, ID);
   Correction M2(OD, S, ID);
 
-endmodule /* TopLevel0410 */
+endmodule /* TopLevel1356 */
 
 /****************************************************************************
  *                                                                          *
@@ -795,26 +795,26 @@ endmodule /* TopLevel0410 */
  *                                                                          *
  ****************************************************************************/
 
-module Circuit1355 (in1, in5, in9, in13, in17, in21, in25, in29,
+module Circuit1355 (in1, in5, in9, in13, in17, in21, in25, in29, 
              in33, in37, in41, in45, in49, in53, in57, in61,
              in65, in69, in73, in77, in81, in85, in89, in93,
              in97, in101, in105, in109, in113, in117, in121, in125,
              in129, in130, in131, in132, in133, in134, in135, in136,
              in137,
              out724, out725, out726, out727, out728, out729, out730, out731,
-             out732, out733, out734, out735, out736, out737, out738, out739,
-             out740, out741, out742, out743, out744, out745, out746, out747,
+             out732, out733, out734, out735, out736, out737, out738, out739, 
+             out740, out741, out742, out743, out744, out745, out746, out747, 
              out748, out749, out750, out751, out752, out753, out754, out755);
 
-  input      in1, in5, in9, in13, in17, in21, in25, in29,
+  input      in1, in5, in9, in13, in17, in21, in25, in29, 
              in33, in37, in41, in45, in49, in53, in57, in61,
              in65, in69, in73, in77, in81, in85, in89, in93,
              in97, in101, in105, in109, in113, in117, in121, in125,
              in129, in130, in131, in132, in133, in134, in135, in136,
              in137;
   output     out724, out725, out726, out727, out728, out729, out730, out731,
-             out732, out733, out734, out735, out736, out737, out738, out739,
-             out740, out741, out742, out743, out744, out745, out746, out747,
+             out732, out733, out734, out735, out736, out737, out738, out739, 
+             out740, out741, out742, out743, out744, out745, out746, out747, 
              out748, out749, out750, out751, out752, out753, out754, out755;
 
 
@@ -822,8 +822,8 @@ module Circuit1355 (in1, in5, in9, in13, in17, in21, in25, in29,
   wire [0:7]    IC;
   wire          R;
 
-
-// ID[0:31] = { in1, in5, in9, in13, in17, in21, in25, in29,
+  
+// ID[0:31] = { in1, in5, in9, in13, in17, in21, in25, in29, 
 //             in33, in37, in41, in45, in49, in53, in57, in61,
 //             in65, in69, in73, in77, in81, in85, in89, in93,
 //             in97, in101, in105, in109, in113, in117, in121, in125}
@@ -874,13 +874,13 @@ module Circuit1355 (in1, in5, in9, in13, in17, in21, in25, in29,
    buffer addedBuf40 (.A(in137), .Y(R));
 
 // {out724, out725, out726, out727, out728, out729, out730, out731,
-//       out732, out733, out734, out735, out736, out737, out738, out739,
-//       out740, out741, out742, out743, out744, out745, out746, out747,
+//       out732, out733, out734, out735, out736, out737, out738, out739, 
+//       out740, out741, out742, out743, out744, out745, out746, out747, 
 //       out748, out749, out750, out751, out752, out753, out754, out755}
 //	    = OD[0:31]
 
 
-  TopLevel0410 Ckt1355 (ID, IC, R, OD);
+  TopLevel1356 Ckt1355 (ID, IC, R, OD);
 
 endmodule /* Circuit1355 */
 
