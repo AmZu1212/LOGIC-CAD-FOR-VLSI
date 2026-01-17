@@ -8,7 +8,7 @@ a. Basic code structure / high-level algorithm
   XOR(spec, impl) for each pair, then OR all XORs and assert it true.
 - Run SAT:
   SAT => mismatch exists, UNSAT => circuits equivalent.
-- Emit DIMACS CNF.
+- Emit DIMACS CNF file.
 
 b. Exact explanation of the comparison algorithm
 - Build a combined SAT instance for both circuits.
@@ -20,6 +20,7 @@ b. Exact explanation of the comparison algorithm
 - For each matched PO (and DFF D), create XOR z = (spec XOR impl).
 - Add a single clause (z1 OR z2 OR ... OR zk) to force at least one mismatch.
 - If SAT, there exists a counterexample input; if UNSAT, no mismatch exists.
+- When SAT, the implementation prints one counterexample input vector (PI values).
 
 c. How constants are handled
 - Global nodes VDD and VSS are treated as constants.
