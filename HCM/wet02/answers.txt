@@ -1,0 +1,35 @@
+a. Basic code structure / high-level algorithm
+- Parse CLI args to get spec and impl top names + Verilog file lists.
+- Parse Verilog into HCM designs and flatten both top cells.
+- Create SAT variables per node for each flattened design.
+- Encode all gates into CNF (Tseytin).
+- Constrain shared primary inputs (same-name PIs) to be equal.
+- For each pair of matching outputs (and DFF D signals), build a miter:
+  XOR(spec, impl) for each pair, then OR all XORs and assert it true.
+- Run SAT:
+  SAT => mismatch exists, UNSAT => circuits equivalent.
+- Emit DIMACS CNF.
+
+b. Exact explanation of the comparison algorithm
+- Build a combined SAT instance for both circuits.
+- For each gate, introduce a fresh SAT variable for its output and add CNF
+  clauses that enforce the gate function (Tseytin).
+- Match PIs by name: add equivalence clauses (a <-> b) to force identical inputs.
+- Handle DFFs by name: tie Q of matching DFFs (same state), and compare D pins
+  by adding them to the miter list.
+- For each matched PO (and DFF D), create XOR z = (spec XOR impl).
+- Add a single clause (z1 OR z2 OR ... OR zk) to force at least one mismatch.
+- If SAT, there exists a counterexample input; if UNSAT, no mismatch exists.
+
+c. How constants are handled
+- Global nodes VDD and VSS are treated as constants.
+- The SAT variable for VDD is forced to true with a unit clause (VDD).
+- The SAT variable for VSS is forced to false with a unit clause (~VSS).
+
+d. XOR support and Tseytin development
+For z = a XOR b, the CNF uses 4 clauses:
+1) (~a OR ~b OR ~z)
+2) ( a OR  b OR ~z)
+3) ( a OR ~b OR  z)
+4) (~a OR  b OR  z)
+These clauses enforce z = 1 iff a != b.
