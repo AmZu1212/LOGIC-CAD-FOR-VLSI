@@ -122,6 +122,317 @@ int main(int argc, char **argv)
 
 	//---------------------------------------------------------------------------------//
 	// enter your code below
+	/// === ANSWERS START HERE ===
+	// Written by:
+	//				Amir Zuabi 		 - 212606222
+	//				Alexey Vasilayev - 323686683
+
+	map<string, int> specVarMap;
+	map<string, int> implVarMap;
+	map<string, hcmNode *> specPIs;
+	map<string, hcmNode *> specPOs;
+	map<string, hcmNode *> implPIs;
+	map<string, hcmNode *> implPOs;
+
+	struct DffInfo
+	{
+		hcmNode *d;
+		hcmNode *q;
+		DffInfo() : d(NULL), q(NULL) {}
+		DffInfo(hcmNode *dNode, hcmNode *qNode) : d(dNode), q(qNode) {}
+	};
+	map<string, DffInfo> specDffs;
+	map<string, DffInfo> implDffs;
+
+	auto addClause = [&](const vector<Lit> &clause) {
+		vec<Lit> lits;
+		for (const auto &lit : clause)
+		{
+			lits.push(lit);
+		}
+		solver.addClause(lits);
+	};
+
+	auto getVar = [&](map<string, int> &varMap, hcmNode *node) -> int {
+		string name = node->getName();
+		auto it = varMap.find(name);
+		if (it != varMap.end())
+		{
+			return it->second;
+		}
+		int v = solver.newVar();
+		varMap[name] = v;
+		if (name == "VDD")
+		{
+			addClause({mkLit(v)});
+		}
+		else if (name == "VSS")
+		{
+			addClause({~mkLit(v)});
+		}
+		return v;
+	};
+
+	auto addEq = [&](int a, int b) {
+		addClause({~mkLit(a), mkLit(b)});
+		addClause({mkLit(a), ~mkLit(b)});
+	};
+
+	auto startsWith = [&](const string &s, const string &prefix) -> bool {
+		return s.compare(0, prefix.size(), prefix) == 0;
+	};
+
+	auto collectPorts = [&](hcmCell *cell, map<string, hcmNode *> &pis, map<string, hcmNode *> &pos) {
+		for (auto &it : cell->getNodes())
+		{
+			hcmNode *node = it.second;
+			const hcmPort *port = node->getPort();
+			if (!port)
+			{
+				continue;
+			}
+			string name = node->getName();
+			hcmPortDir dir = port->getDirection();
+			if (dir == IN)
+			{
+				pis[name] = node;
+			}
+			else if (dir == OUT)
+			{
+				pos[name] = node;
+			}
+			else if (dir == IN_OUT)
+			{
+				pis[name] = node;
+				pos[name] = node;
+			}
+		}
+	};
+
+	auto encodeGate = [&](const string &gateName, const vector<int> &inputs, int outputVar) {
+		if (gateName == "buffer")
+		{
+			if (inputs.size() != 1)
+			{
+				return;
+			}
+			int a = inputs[0];
+			addClause({~mkLit(outputVar), mkLit(a)});
+			addClause({mkLit(outputVar), ~mkLit(a)});
+			return;
+		}
+		if (gateName == "inv" || gateName == "not")
+		{
+			if (inputs.size() != 1)
+			{
+				return;
+			}
+			int a = inputs[0];
+			addClause({~mkLit(outputVar), ~mkLit(a)});
+			addClause({mkLit(outputVar), mkLit(a)});
+			return;
+		}
+		if (startsWith(gateName, "xor"))
+		{
+			if (inputs.size() != 2)
+			{
+				return;
+			}
+			int a = inputs[0];
+			int b = inputs[1];
+			addClause({~mkLit(a), ~mkLit(b), ~mkLit(outputVar)});
+			addClause({mkLit(a), mkLit(b), ~mkLit(outputVar)});
+			addClause({mkLit(a), ~mkLit(b), mkLit(outputVar)});
+			addClause({~mkLit(a), mkLit(b), mkLit(outputVar)});
+			return;
+		}
+		if (startsWith(gateName, "nand"))
+		{
+			for (size_t i = 0; i < inputs.size(); i++)
+			{
+				addClause({mkLit(outputVar), mkLit(inputs[i])});
+			}
+			vector<Lit> clause;
+			clause.push_back(~mkLit(outputVar));
+			for (size_t i = 0; i < inputs.size(); i++)
+			{
+				clause.push_back(~mkLit(inputs[i]));
+			}
+			addClause(clause);
+			return;
+		}
+		if (startsWith(gateName, "nor"))
+		{
+			for (size_t i = 0; i < inputs.size(); i++)
+			{
+				addClause({~mkLit(outputVar), ~mkLit(inputs[i])});
+			}
+			vector<Lit> clause;
+			clause.push_back(mkLit(outputVar));
+			for (size_t i = 0; i < inputs.size(); i++)
+			{
+				clause.push_back(mkLit(inputs[i]));
+			}
+			addClause(clause);
+			return;
+		}
+		if (gateName == "and" || (startsWith(gateName, "and") && !startsWith(gateName, "nand")))
+		{
+			for (size_t i = 0; i < inputs.size(); i++)
+			{
+				addClause({~mkLit(outputVar), mkLit(inputs[i])});
+			}
+			vector<Lit> clause;
+			clause.push_back(mkLit(outputVar));
+			for (size_t i = 0; i < inputs.size(); i++)
+			{
+				clause.push_back(~mkLit(inputs[i]));
+			}
+			addClause(clause);
+			return;
+		}
+		if (gateName == "or" || (startsWith(gateName, "or") && !startsWith(gateName, "nor")))
+		{
+			for (size_t i = 0; i < inputs.size(); i++)
+			{
+				addClause({~mkLit(inputs[i]), mkLit(outputVar)});
+			}
+			vector<Lit> clause;
+			clause.push_back(~mkLit(outputVar));
+			for (size_t i = 0; i < inputs.size(); i++)
+			{
+				clause.push_back(mkLit(inputs[i]));
+			}
+			addClause(clause);
+			return;
+		}
+	};
+
+	auto encodeCell = [&](hcmCell *cell, map<string, int> &varMap, map<string, DffInfo> &dffMap) {
+		for (auto &instPair : cell->getInstances())
+		{
+			hcmInstance *inst = instPair.second;
+			hcmCell *master = inst->masterCell();
+			string gateName = master->getName();
+			vector<int> inputs;
+			vector<int> outputs;
+			map<string, hcmNode *> portNodes;
+
+			for (auto &portPair : inst->getInstPorts())
+			{
+				hcmInstPort *instPort = portPair.second;
+				hcmPort *port = instPort->getPort();
+				hcmNode *node = instPort->getNode();
+				int v = getVar(varMap, node);
+				portNodes[port->getName()] = node;
+				if (port->getDirection() == IN)
+				{
+					inputs.push_back(v);
+				}
+				else if (port->getDirection() == OUT)
+				{
+					outputs.push_back(v);
+				}
+			}
+
+			if (gateName == "dff")
+			{
+				hcmNode *dNode = NULL;
+				hcmNode *qNode = NULL;
+				if (portNodes.count("D"))
+				{
+					dNode = portNodes["D"];
+					getVar(varMap, dNode);
+				}
+				if (portNodes.count("Q"))
+				{
+					qNode = portNodes["Q"];
+					getVar(varMap, qNode);
+				}
+				dffMap[inst->getName()] = DffInfo(dNode, qNode);
+				continue;
+			}
+
+			if (outputs.empty())
+			{
+				continue;
+			}
+			encodeGate(gateName, inputs, outputs[0]);
+		}
+	};
+
+	collectPorts(flatSpecCell, specPIs, specPOs);
+	collectPorts(flatImpCell, implPIs, implPOs);
+
+	encodeCell(flatSpecCell, specVarMap, specDffs);
+	encodeCell(flatImpCell, implVarMap, implDffs);
+
+	for (auto &piPair : specPIs)
+	{
+		const string &name = piPair.first;
+		if (!implPIs.count(name))
+		{
+			continue;
+		}
+		int a = getVar(specVarMap, piPair.second);
+		int b = getVar(implVarMap, implPIs[name]);
+		addEq(a, b);
+	}
+
+	vector<pair<int, int>> comparePairs;
+	for (auto &poPair : specPOs)
+	{
+		const string &name = poPair.first;
+		if (!implPOs.count(name))
+		{
+			continue;
+		}
+		int a = getVar(specVarMap, poPair.second);
+		int b = getVar(implVarMap, implPOs[name]);
+		comparePairs.push_back(make_pair(a, b));
+	}
+
+	for (auto &dffPair : specDffs)
+	{
+		const string &name = dffPair.first;
+		if (!implDffs.count(name))
+		{
+			continue;
+		}
+		DffInfo specInfo = dffPair.second;
+		DffInfo implInfo = implDffs[name];
+		if (specInfo.q && implInfo.q)
+		{
+			int a = getVar(specVarMap, specInfo.q);
+			int b = getVar(implVarMap, implInfo.q);
+			addEq(a, b);
+		}
+		if (specInfo.d && implInfo.d)
+		{
+			int a = getVar(specVarMap, specInfo.d);
+			int b = getVar(implVarMap, implInfo.d);
+			comparePairs.push_back(make_pair(a, b));
+		}
+	}
+
+	vector<Lit> mismatchLits;
+	for (size_t idx = 0; idx < comparePairs.size(); idx++)
+	{
+		int a = comparePairs[idx].first;
+		int b = comparePairs[idx].second;
+		int z = solver.newVar();
+		addClause({~mkLit(a), ~mkLit(b), ~mkLit(z)});
+		addClause({mkLit(a), mkLit(b), ~mkLit(z)});
+		addClause({mkLit(a), ~mkLit(b), mkLit(z)});
+		addClause({~mkLit(a), mkLit(b), mkLit(z)});
+		mismatchLits.push_back(mkLit(z));
+	}
+
+	if (!mismatchLits.empty())
+	{
+		addClause(mismatchLits);
+	}
+
 
 	//---------------------------------------------------------------------------------//
 	solver.toDimacs(fileName.c_str());
